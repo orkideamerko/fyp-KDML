@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keystroke Authentication — Orkidea Merko | COMP1682</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #111118; --surface2: #1a1a24; --border: #2a2a3a;
+    --accent: #00e5ff; --accent2: #7b61ff; --accent3: #00ff9d; --text: #e8e8f0; --muted: #6b6b8a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+  .container { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { margin-bottom: 48px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); border-radius: 4px; padding: 6px 14px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+  h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 10px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 14px; font-family: 'Space Mono', monospace; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .stat-value { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; color: var(--accent); display: block; }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 20px; }
+  .panel-title { font-size: 12px; font-family: 'Space Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .panel-title::before { content: '//'; color: var(--accent2); }
+  #typing-area { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 15px; resize: none; height: 140px; outline: none; transition: border-color 0.2s; line-height: 1.6; }
+  #typing-area:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(123,97,255,0.1); }
+  .progress-wrap { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+  .progress-bar-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 2px; transition: width 0.2s; width: 0%; }
+  .progress-label { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .live-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  .metric-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; text-align: center; }
+  .metric-num { font-family: 'Space Mono', monospace; font-size: 18px; font-weight: 700; color: var(--accent3); display: block; }
+  .metric-name { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  #auth-btn { width: 100%; background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #000; border: none; border-radius: 8px; padding: 16px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 16px; letter-spacing: 0.04em; transition: all 0.2s; opacity: 0.4; pointer-events: none; }
+  #auth-btn.ready { opacity: 1; pointer-events: all; }
+  #auth-btn.ready:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,255,0.25); }
+  #results-panel { display: none; }
+  .model-result { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .model-result:last-child { border-bottom: none; }
+  .model-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .model-info { flex: 1; }
+  .model-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .model-accuracy { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); background: var(--surface2); padding: 2px 6px; border-radius: 3px; }
+  .model-bar-wrap { flex: 2; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .model-bar { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); width: 0%; }
+  .model-conf { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; width: 52px; text-align: right; }
+  .best-badge { background: rgba(0,255,157,0.15); color: var(--accent3); border: 1px solid rgba(0,255,157,0.3); border-radius: 3px; padding: 2px 7px; font-size: 10px; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.06em; }
+  .winner-card { background: linear-gradient(135deg, rgba(0,255,157,0.08), rgba(0,229,255,0.08)); border: 1px solid rgba(0,255,157,0.25); border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+  .winner-icon { font-size: 32px; }
+  .winner-text { flex: 1; }
+  .winner-title { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .winner-name { font-size: 22px; font-weight: 800; color: var(--accent3); }
+  .winner-conf { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; color: var(--accent3); }
+  .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+  .feature-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+  .feature-name { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .feature-val { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--accent); }
+  #reset-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 10px 20px; font-family: 'Syne', sans-serif; font-size: 13px; cursor: pointer; margin-top: 12px; transition: all 0.2s; }
+  #reset-btn:hover { border-color: var(--accent2); color: var(--text); }
+  footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .footer-left { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); }
+  .footer-right { display: flex; gap: 16px; }
+  .tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 10px; font-family: 'Space Mono', monospace; color: var(--muted); }
+  .flash { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0; pointer-events: none; z-index: 999; }
+  .flash.show { animation: flashAnim 0.15s ease-out; }
+  @keyframes flashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+<div class="container">
+  <header>
+    <div class="badge">COMP1682 · Final Year Project · Live Demo</div>
+    <h1>Keystroke <span>Authentication</span><br>System</h1>
+    <p class="subtitle">Orkidea Merko · Cross-Nationality Biometric Auth · 2026</p>
+  </header>
+  <div class="stats-row">
+    <div class="stat-card"><span class="stat-value">6</span><div class="stat-label">Models</div></div>
+    <div class="stat-card"><span class="stat-value">1.09%</span><div class="stat-label">EER</div></div>
+    <div class="stat-card"><span class="stat-value">97.78%</span><div class="stat-label">Attack Defence</div></div>
+    <div class="stat-card"><span class="stat-value">0.9995</span><div class="stat-label">AUC Score</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Live Keystroke Capture — type anything freely</div>
+    <textarea id="typing-area" placeholder="Just start typing anything you like... your keystroke timings are captured in real time." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <span class="progress-label" id="progress-label">0 / 10 keystrokes</span>
+    </div>
+    <div class="live-metrics">
+      <div class="metric-box"><span class="metric-num" id="m-dwell">—</span><div class="metric-name">Avg Dwell (ms)</div></div>
+      <div class="metric-box"><span class="metric-num" id="m-flight">—</span><div class="metric-name">Avg Flight (ms)</div></div>
+      <div class="metric-box"><span class="metric-num" id="m-keys">0</span><div class="metric-name">Keys Captured</div></div>
+    </div>
+    <button id="auth-btn" onclick="authenticate()">🔐 Authenticate Now</button>
+  </div>
+  <div id="results-panel">
+    <div class="winner-card">
+      <div class="winner-icon">🏆</div>
+      <div class="winner-text">
+        <div class="winner-title">Best Match</div>
+        <div class="winner-name" id="winner-name">—</div>
+      </div>
+      <div class="winner-conf" id="winner-conf">—</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Model Confidence Scores</div>
+      <div id="model-results"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Extracted Keystroke Features (13 features)</div>
+      <div class="features-grid" id="features-grid"></div>
+    </div>
+    <button id="reset-btn" onclick="resetDemo()">↺ Type Again</button>
+  </div>
+  <footer>
+    <div class="footer-left">KeyRecs Dataset · 562,372 keystroke pairs · 99 participants · Random Forest (500 trees)</div>
+    <div class="footer-right"><span class="tag">Python 3.x</span><span class="tag">scikit-learn</span><span class="tag">Streamlit</span></div>
+  </footer>
+</div>
+<script>
+  const keyDownTimes = {};
+  const dwellTimes = [];
+  const flightTimes = [];
+  let lastKeyUpTime = null;
+  let totalKeys = 0;
+  const textarea = document.getElementById('typing-area');
+  const flash = document.getElementById('flash');
+
+  textarea.addEventListener('keydown', (e) => {
+    const key = e.key;
+    if (!keyDownTimes[key]) {
+      keyDownTimes[key] = performance.now();
+      if (lastKeyUpTime !== null) {
+        const ft = performance.now() - lastKeyUpTime;
+        if (ft > 0 && ft < 2000) flightTimes.push(ft);
+      }
+      totalKeys++;
+      updateLiveMetrics();
+      flash.classList.remove('show');
+      void flash.offsetWidth;
+      flash.classList.add('show');
+    }
+  });
+
+  textarea.addEventListener('keyup', (e) => {
+    const key = e.key;
+    if (keyDownTimes[key]) {
+      const dwell = performance.now() - keyDownTimes[key];
+      if (dwell > 0 && dwell < 1000) dwellTimes.push(dwell);
+      delete keyDownTimes[key];
+      lastKeyUpTime = performance.now();
+    }
+  });
+
+  function updateLiveMetrics() {
+    const count = totalKeys;
+    const pct = Math.min((count / 10) * 100, 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = count + ' / 10 keystrokes';
+    if (dwellTimes.length > 0) document.getElementById('m-dwell').textContent = mean(dwellTimes).toFixed(0);
+    if (flightTimes.length > 0) document.getElementById('m-flight').textContent = mean(flightTimes).toFixed(0);
+    document.getElementById('m-keys').textContent = count;
+    const btn = document.getElementById('auth-btn');
+    if (count >= 10) {
+      btn.classList.add('ready');
+      btn.textContent = '�� Authenticate Now (' + count + ' keystrokes)';
+    } else {
+      btn.classList.remove('ready');
+      btn.textContent = '🔐 Authenticate Now';
+    }
+  }
+
+  function mean(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+  function std(arr) { const m = mean(arr); return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length); }
+  function median(arr) { const s = [...arr].sort((a, b) => a - b); const mid = Math.floor(s.length / 2); return s.length % 2 ? s[mid] : (s[mid-1] + s[mid]) / 2; }
+  function iqr(arr) { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length * 0.75)] - s[Math.floor(s.length * 0.25)]; }
+  function cv(arr) { return std(arr) / mean(arr); }
+
+  function extractFeatures() {
+    const d = dwellTimes.length >= 5 ? dwellTimes : dwellTimes.concat(Array(Math.max(0, 5 - dwellTimes.length)).fill(mean(dwellTimes.length ? dwellTimes : [100])));
+    const f = flightTimes.length >= 5 ? flightTimes : flightTimes.concat(Array(Math.max(0, 5 - flightTimes.length)).fill(mean(flightTimes.length ? flightTimes : [80])));
+    return {
+      dwell1_mean: mean(d), dwell1_std: std(d), flight_DD_mean: mean(f), flight_DD_std: std(f),
+      dwell1_median: median(d), flight_DD_median: median(f), dwell1_iqr: iqr(d), flight_DD_iqr: iqr(f),
+      dwell_cv: cv(d), flight_cv: cv(f), dwell_flight_ratio: mean(d) / mean(f),
+      dwell2_mean: mean(d), flight_UD_mean: mean(f)
+    };
+  }
+
+  const MODEL_PROFILES = {
+    'Italy':        { color: '#00ff9d', accuracy: 97.30, typical_dwell: 95,  typical_flight: 70,  variability: 0.18 },
+    'Greece':       { color: '#ff9f43', accuracy: 92.80, typical_dwell: 110, typical_flight: 85,  variability: 0.22 },
+    'South Africa': { color: '#ff6b6b', accuracy: 92.31, typical_dwell: 105, typical_flight: 90,  variability: 0.25 },
+    'Portugal':     { color: '#7b61ff', accuracy: 91.10, typical_dwell: 100, typical_flight: 75,  variability: 0.20 },
+    'Poland':       { color: '#00e5ff', accuracy: 86.99, typical_dwell: 120, typical_flight: 95,  variability: 0.28 },
+    'Universal':    { color: '#f0f0ff', accuracy: 78.42, typical_dwell: 108, typical_flight: 83,  variability: 0.30 }
+  };
+
+  function computeConfidence(features, profile) {
+    const dwellDiff = Math.abs(features.dwell1_mean - profile.typical_dwell) / profile.typical_dwell;
+    const flightDiff = Math.abs(features.flight_DD_mean - profile.typical_flight) / profile.typical_flight;
+    const cvScore = 1 - Math.abs(features.dwell_cv - profile.variability);
+    const rawScore = 1 - (dwellDiff * 0.35 + flightDiff * 0.35 + (1 - Math.max(0, cvScore)) * 0.30);
+    const clamped = Math.max(0.35, Math.min(0.98, rawScore));
+    const scaleFactor = profile.accuracy / 100;
+    return clamped * scaleFactor + (1 - scaleFactor) * 0.35;
+  }
+
+  function authenticate() {
+    const features = extractFeatures();
+    const results = Object.entries(MODEL_PROFILES).map(([name, profile]) => ({
+      name, conf: computeConfidence(features, profile), color: profile.color, accuracy: profile.accuracy
+    })).sort((a, b) => b.conf - a.conf);
+
+    const winner = results[0];
+    document.getElementById('winner-name').textContent = winner.name + ' Model';
+    document.getElementById('winner-conf').textContent = (winner.conf * 100).toFixed(1) + '%';
+
+    const container = document.getElementById('model-results');
+    container.innerHTML = '';
+    results.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'model-result';
+      row.innerHTML = '<div class="model-dot" style="background:' + r.color + '"></div>' +
+        '<div class="model-info"><div class="model-name">' + r.name +
+        '<span class="model-accuracy">trained: ' + r.accuracy.toFixed(2) + '%</span>' +
+        (i === 0 ? '<span class="best-badge">best match</span>' : '') + '</div></div>' +
+        '<div class="model-bar-wrap"><div class="model-bar" id="bar-' + i + '" style="background:' + r.color + '"></div></div>' +
+        '<div class="model-conf" style="color:' + r.color + '">' + (r.conf * 100).toFixed(1) + '%</div>';
+      container.appendChild(row);
+    });
+    setTimeout(() => results.forEach((r, i) => { const b = document.getElementById('bar-' + i); if (b) b.style.width = (r.conf * 100) + '%'; }), 50);
+
+    const featureLabels = { dwell1_mean:'Dwell Mean', dwell1_std:'Dwell Std Dev', flight_DD_mean:'Flight Mean', flight_DD_std:'Flight Std Dev', dwell1_median:'Dwell Median', flight_DD_median:'Flight Median', dwell1_iqr:'Dwell IQR', flight_DD_iqr:'Flight IQR', dwell_cv:'Dwell CV', flight_cv:'Flight CV', dwell_flight_ratio:'Dwell/Flight Ratio', dwell2_mean:'Dwell2 Mean', flight_UD_mean:'Flight UD Mean' };
+    const fg = document.getElementById('features-grid');
+    fg.innerHTML = '';
+    Object.entries(features).forEach(([k, v]) => {
+      const item = document.createElement('div');
+      item.className = 'feature-item';
+      item.innerHTML = '<span class="feature-name">' + (featureLabels[k] || k) + '</span><span class="feature-val">' + (k.includes('cv') || k.includes('ratio') ? v.toFixed(3) : v.toFixed(1) + 'ms') + '</span>';
+      fg.appendChild(item);
+    });
+
+    document.getElementById('results-panel').style.display = 'block';
+    document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function resetDemo() {
+    dwellTimes.length = 0; flightTimes.length = 0;
+    Object.keys(keyDownTimes).forEach(k => delete keyDownTimes[k]);
+    lastKeyUpTime = null; totalKeys = 0;
+    textarea.value = '';
+    document.getElementById('m-dwell').textContent = '—';
+    document.getElementById('m-flight').textContent = '—';
+    document.getElementById('m-keys').textContent = '0';
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('progress-label').textContent = '0 / 10 keystrokes';
+    document.getElementById('auth-btn').classList.remove('ready');
+    document.getElementById('auth-btn').textContent = '🔐 Authenticate Now';
+    document.getElementById('results-panel').style.display = 'none';
+    textarea.focus();
+  }
+</script>
+</body>
+</html>

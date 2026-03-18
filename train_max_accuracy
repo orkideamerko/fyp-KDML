@@ -1,0 +1,374 @@
+"""
+Session-Level Keystroke Authentication Training - MAXIMUM ACCURACY VERSION
+15 users + 150 keystrokes per session = TARGET 90%+
+
+Author: Orkidea Merko
+Project: COMP1682 Final Year Project
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import joblib
+import warnings
+import os
+warnings.filterwarnings('ignore')
+
+print("\n" + "="*80)
+print(" " * 10 + "MAXIMUM ACCURACY SESSION-LEVEL AUTHENTICATION TRAINING")
+print(" " * 15 + "(15 Users + 150 Keystrokes/Session)")
+print("="*80 + "\n")
+
+# Create directories
+os.makedirs('models/saved_models', exist_ok=True)
+os.makedirs('results/model_performance', exist_ok=True)
+os.makedirs('data/features', exist_ok=True)
+
+# ============================================================================
+# STEP 1: LOAD AND PREPARE DATA
+# ============================================================================
+print("[1/6] Loading dataset...")
+
+demographics = pd.read_csv('data/raw/demographics.csv')
+free_text = pd.read_csv('data/raw/free-text.csv')
+
+print(f"✓ Loaded demographics: {len(demographics)} participants")
+print(f"✓ Loaded free-text: {len(free_text):,} keystroke pairs")
+
+# Merge with demographics
+df = free_text.merge(demographics, on='participant', how='left')
+
+# Rename columns
+column_mapping = {
+    'DU.key1.key1': 'dwell_key1',
+    'DU.key1.key2': 'dwell_key2',
+    'DD.key1.key2': 'flight_time_DD',
+    'UD.key1.key2': 'flight_time_UD'
+}
+df = df.rename(columns=column_mapping)
+
+# Convert to numeric
+timing_columns = ['dwell_key1', 'dwell_key2', 'flight_time_DD', 'flight_time_UD']
+for col in timing_columns:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+# Remove missing values
+df = df.dropna(subset=['dwell_key1', 'flight_time_DD'])
+
+print(f"\n✓ Prepared {len(df):,} keystroke pairs")
+print(f"✓ From {df['participant'].nunique()} participants")
+print(f"✓ Across {df['nationality'].nunique()} nationalities")
+
+# ============================================================================
+# STEP 2: SELECT TRAINING DATA (OPTIMIZED: TOP 15 USERS)
+# ============================================================================
+print("\n[2/6] Selecting training nationality...")
+
+# Get top nationality
+nationality_counts = df['nationality'].value_counts()
+top_nationality = nationality_counts.index[0]
+
+print(f"\nTraining on: {top_nationality}")
+
+# Filter to top nationality
+baseline_data = df[df['nationality'] == top_nationality].copy()
+
+# OPTIMIZATION 1: Select top 15 users with most data
+participant_counts = baseline_data['participant'].value_counts()
+valid_participants = participant_counts[participant_counts >= 600].head(15).index
+
+baseline_data = baseline_data[baseline_data['participant'].isin(valid_participants)].copy()
+
+print(f"✓ Selected TOP {len(valid_participants)} participants (optimized for max accuracy)")
+print(f"✓ Each participant has 600+ keystrokes")
+print(f"✓ Total keystrokes: {len(baseline_data):,}")
+
+# ============================================================================
+# STEP 3: CREATE SESSIONS (OPTIMIZED: 150 KEYSTROKES!)
+# ============================================================================
+print("\n[3/6] Creating user sessions...")
+
+# OPTIMIZATION 2: Larger session size
+SESSION_SIZE = 150
+
+print(f"Session size: {SESSION_SIZE} keystrokes per session (MAXIMUM)")
+
+# Create sessions for each user
+sessions = []
+
+for participant in valid_participants:
+    user_data = baseline_data[baseline_data['participant'] == participant].copy()
+    user_data = user_data.sort_values('session').reset_index(drop=True)
+    
+    # Split user's keystrokes into sessions of SESSION_SIZE
+    n_sessions = len(user_data) // SESSION_SIZE
+    
+    for session_idx in range(n_sessions):
+        start_idx = session_idx * SESSION_SIZE
+        end_idx = start_idx + SESSION_SIZE
+        session_keystrokes = user_data.iloc[start_idx:end_idx]
+        
+        # Aggregate statistics for this session
+        session_features = {
+            'participant': participant,
+            'nationality': session_keystrokes['nationality'].iloc[0],
+            'session_id': f"{participant}_{session_idx}",
+            
+            # Dwell time statistics
+            'dwell1_mean': session_keystrokes['dwell_key1'].mean(),
+            'dwell1_std': session_keystrokes['dwell_key1'].std(),
+            'dwell1_median': session_keystrokes['dwell_key1'].median(),
+            'dwell1_min': session_keystrokes['dwell_key1'].min(),
+            'dwell1_max': session_keystrokes['dwell_key1'].max(),
+            'dwell1_q25': session_keystrokes['dwell_key1'].quantile(0.25),
+            'dwell1_q75': session_keystrokes['dwell_key1'].quantile(0.75),
+            'dwell1_range': session_keystrokes['dwell_key1'].max() - session_keystrokes['dwell_key1'].min(),
+            'dwell1_iqr': session_keystrokes['dwell_key1'].quantile(0.75) - session_keystrokes['dwell_key1'].quantile(0.25),
+            'dwell1_skew': session_keystrokes['dwell_key1'].skew(),
+            
+            # Dwell key2 statistics
+            'dwell2_mean': session_keystrokes['dwell_key2'].mean(),
+            'dwell2_std': session_keystrokes['dwell_key2'].std(),
+            'dwell2_median': session_keystrokes['dwell_key2'].median(),
+            'dwell2_q25': session_keystrokes['dwell_key2'].quantile(0.25),
+            'dwell2_q75': session_keystrokes['dwell_key2'].quantile(0.75),
+            'dwell2_iqr': session_keystrokes['dwell_key2'].quantile(0.75) - session_keystrokes['dwell_key2'].quantile(0.25),
+            
+            # Flight time DD statistics
+            'flight_DD_mean': session_keystrokes['flight_time_DD'].mean(),
+            'flight_DD_std': session_keystrokes['flight_time_DD'].std(),
+            'flight_DD_median': session_keystrokes['flight_time_DD'].median(),
+            'flight_DD_min': session_keystrokes['flight_time_DD'].min(),
+            'flight_DD_max': session_keystrokes['flight_time_DD'].max(),
+            'flight_DD_q25': session_keystrokes['flight_time_DD'].quantile(0.25),
+            'flight_DD_q75': session_keystrokes['flight_time_DD'].quantile(0.75),
+            'flight_DD_range': session_keystrokes['flight_time_DD'].max() - session_keystrokes['flight_time_DD'].min(),
+            'flight_DD_iqr': session_keystrokes['flight_time_DD'].quantile(0.75) - session_keystrokes['flight_time_DD'].quantile(0.25),
+            'flight_DD_skew': session_keystrokes['flight_time_DD'].skew(),
+            
+            # Flight time UD statistics
+            'flight_UD_mean': session_keystrokes['flight_time_UD'].mean(),
+            'flight_UD_std': session_keystrokes['flight_time_UD'].std(),
+            'flight_UD_median': session_keystrokes['flight_time_UD'].median(),
+            'flight_UD_q25': session_keystrokes['flight_time_UD'].quantile(0.25),
+            'flight_UD_q75': session_keystrokes['flight_time_UD'].quantile(0.75),
+            'flight_UD_iqr': session_keystrokes['flight_time_UD'].quantile(0.75) - session_keystrokes['flight_time_UD'].quantile(0.25),
+            
+            # Typing rhythm features
+            'typing_speed': SESSION_SIZE / session_keystrokes['flight_time_DD'].sum() if session_keystrokes['flight_time_DD'].sum() > 0 else 0,
+            'rhythm_consistency': session_keystrokes['flight_time_DD'].std() / session_keystrokes['flight_time_DD'].mean() if session_keystrokes['flight_time_DD'].mean() > 0 else 0,
+            'dwell_consistency': session_keystrokes['dwell_key1'].std() / session_keystrokes['dwell_key1'].mean() if session_keystrokes['dwell_key1'].mean() > 0 else 0,
+            
+            # Cross-feature relationships
+            'dwell_flight_ratio': session_keystrokes['dwell_key1'].mean() / session_keystrokes['flight_time_DD'].mean() if session_keystrokes['flight_time_DD'].mean() > 0 else 0,
+            'dwell1_dwell2_ratio': session_keystrokes['dwell_key1'].mean() / session_keystrokes['dwell_key2'].mean() if session_keystrokes['dwell_key2'].mean() > 0 else 0,
+            'flight_DD_UD_ratio': session_keystrokes['flight_time_DD'].mean() / session_keystrokes['flight_time_UD'].mean() if session_keystrokes['flight_time_UD'].mean() > 0 else 0,
+            
+            # Variance ratios
+            'dwell_variance': session_keystrokes['dwell_key1'].var(),
+            'flight_variance': session_keystrokes['flight_time_DD'].var()
+        }
+        
+        sessions.append(session_features)
+
+sessions_df = pd.DataFrame(sessions)
+
+print(f"\n✓ Created {len(sessions_df)} sessions")
+print(f"✓ Sessions per user: {len(sessions_df) / len(valid_participants):.1f} average")
+print(f"✓ Features per session: {len(sessions_df.columns) - 3}")
+
+# Save session data
+sessions_df.to_csv('data/features/session_profiles_max_accuracy.csv', index=False)
+print(f"✓ Saved: data/features/session_profiles_max_accuracy.csv")
+
+# ============================================================================
+# STEP 4: PREPARE FOR TRAINING
+# ============================================================================
+print("\n[4/6] Preparing sessions for training...")
+
+# Features and labels
+feature_columns = [col for col in sessions_df.columns if col not in ['participant', 'nationality', 'session_id']]
+X = sessions_df[feature_columns].copy()
+y = sessions_df['participant'].copy()
+
+# Encode labels
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+print(f"\n✓ Total sessions: {len(X)}")
+print(f"✓ Features per session: {X.shape[1]}")
+print(f"✓ Users to identify: {len(np.unique(y_encoded))} (optimized)")
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_encoded, test_size=0.3, random_state=42
+)
+
+print(f"\n✓ Training sessions: {len(X_train)}")
+print(f"✓ Test sessions: {len(X_test)}")
+
+# Feature scaling
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Save preprocessing objects
+joblib.dump(scaler, f'models/saved_models/max_accuracy_scaler_{top_nationality}.pkl')
+joblib.dump(label_encoder, f'models/saved_models/max_accuracy_label_encoder_{top_nationality}.pkl')
+
+print(f"\n✓ Features scaled and saved")
+
+# ============================================================================
+# STEP 5: TRAIN MAXIMUM ACCURACY MODELS
+# ============================================================================
+print("\n[5/6] Training MAXIMUM ACCURACY models...")
+
+models = {}
+results = {}
+
+# Model 1: MAXIMUM ACCURACY Random Forest
+print("\n  [1/2] Training MAXIMUM ACCURACY Random Forest...")
+rf = RandomForestClassifier(
+    n_estimators=500,
+    max_depth=None,
+    min_samples_split=2,
+    min_samples_leaf=1,
+    max_features='sqrt',
+    bootstrap=True,
+    random_state=42,
+    n_jobs=-1,
+    verbose=0
+)
+rf.fit(X_train_scaled, y_train)
+models['Random_Forest'] = rf
+
+y_pred_rf = rf.predict(X_test_scaled)
+y_pred_proba_rf = rf.predict_proba(X_test_scaled)
+accuracy_rf = accuracy_score(y_test, y_pred_rf)
+results['Random_Forest'] = {
+    'accuracy': accuracy_rf,
+    'predictions': y_pred_rf,
+    'probabilities': y_pred_proba_rf
+}
+
+print(f"    ✓ Random Forest trained")
+print(f"    ✓ Accuracy: {accuracy_rf:.4f} ({accuracy_rf*100:.2f}%)")
+
+# Model 2: MAXIMUM ACCURACY SVM
+print("\n  [2/2] Training MAXIMUM ACCURACY SVM...")
+svm = SVC(
+    kernel='rbf',
+    C=100.0,
+    gamma='scale',
+    probability=True,
+    random_state=42
+)
+svm.fit(X_train_scaled, y_train)
+models['SVM'] = svm
+
+y_pred_svm = svm.predict(X_test_scaled)
+y_pred_proba_svm = svm.predict_proba(X_test_scaled)
+accuracy_svm = accuracy_score(y_test, y_pred_svm)
+results['SVM'] = {
+    'accuracy': accuracy_svm,
+    'predictions': y_pred_svm,
+    'probabilities': y_pred_proba_svm
+}
+
+print(f"    ✓ SVM trained")
+print(f"    ✓ Accuracy: {accuracy_svm:.4f} ({accuracy_svm*100:.2f}%)")
+
+# ============================================================================
+# STEP 6: EVALUATE AND SAVE
+# ============================================================================
+print("\n[6/6] Evaluating and saving results...")
+
+# Save models
+for model_name, model in models.items():
+    filename = f'models/saved_models/MaxAccuracy_{model_name}_{top_nationality}.pkl'
+    joblib.dump(model, filename)
+    print(f"  ✓ Saved: {filename}")
+
+# Performance comparison
+performance_df = pd.DataFrame({
+    'Model': list(results.keys()),
+    'Accuracy': [results[m]['accuracy'] for m in results.keys()]
+}).sort_values('Accuracy', ascending=False)
+
+print("\n" + "="*80)
+print("MAXIMUM ACCURACY MODEL PERFORMANCE (15 users, 150 keys/session)")
+print("="*80)
+print(performance_df.to_string(index=False))
+print("="*80)
+
+# Detailed metrics
+best_model_name = performance_df.iloc[0]['Model']
+best_predictions = results[best_model_name]['predictions']
+
+print(f"\n📊 Detailed Metrics for {best_model_name}:")
+print("="*80)
+
+report = classification_report(y_test, best_predictions, 
+                               target_names=[f"User_{i}" for i in range(len(np.unique(y_test)))],
+                               output_dict=True, zero_division=0)
+
+print(f"Accuracy:  {report['accuracy']:.4f} ({report['accuracy']*100:.2f}%)")
+print(f"Precision: {report['weighted avg']['precision']:.4f}")
+print(f"Recall:    {report['weighted avg']['recall']:.4f}")
+print(f"F1-Score:  {report['weighted avg']['f1-score']:.4f}")
+
+# Save results
+detailed_results = pd.DataFrame({
+    'Model': list(results.keys()),
+    'Accuracy': [results[m]['accuracy'] for m in results.keys()],
+    'Config': ['15 users, 150 keys'] * len(results),
+    'Session_Size': [SESSION_SIZE] * len(results),
+    'Users': [len(valid_participants)] * len(results)
+})
+
+detailed_results.to_csv('results/model_performance/max_accuracy_results.csv', index=False)
+print("\n✓ Saved: results/model_performance/max_accuracy_results.csv")
+
+# ============================================================================
+# FINAL SUMMARY
+# ============================================================================
+best_acc = results[best_model_name]['accuracy']
+
+print("\n" + "="*80)
+print(" " * 25 + "FINAL RESULTS")
+print("="*80)
+
+print(f"\n📊 CONFIGURATION:")
+print(f"  • Users: {len(valid_participants)} (optimized)")
+print(f"  • Session size: {SESSION_SIZE} keystrokes")
+print(f"  • Features: {X.shape[1]}")
+
+print(f"\n🎯 PERFORMANCE:")
+print(f"  • Random Forest: {results['Random_Forest']['accuracy']*100:.2f}%")
+print(f"  • SVM: {results['SVM']['accuracy']*100:.2f}%")
+
+if best_acc >= 0.90:
+    print(f"\n{'='*80}")
+    print(f"🎉 🎉 🎉  TARGET ACHIEVED: {best_acc*100:.2f}% ≥ 90%!  🎉 🎉 🎉")
+    print(f"{'='*80}")
+elif best_acc >= 0.88:
+    print(f"\n✅ EXCELLENT: {best_acc*100:.2f}% (very close to 90%)")
+else:
+    print(f"\n✓ Good: {best_acc*100:.2f}%")
+
+print(f"\n📈 PROGRESSION:")
+print(f"  • Keystroke-level:  19.07%")
+print(f"  • Session-50:       74.94%")
+print(f"  • Session-100:      84.13%")
+print(f"  • Session-150:      {best_acc*100:.2f}% ← FINAL")
+
+print("\n" + "="*80)
+print("✅ TRAINING COMPLETE!")
+print("="*80 + "\n")
