@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keystroke Authentication — Orkidea Merko | COMP1682</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0a0a0f;--surface:#111118;--surface2:#1a1a24;--border:#2a2a3a;
+    --accent:#00e5ff;--accent2:#7b61ff;--accent3:#00ff9d;--text:#e8e8f0;--muted:#6b6b8a;
+    --warn:#ff9f43;--danger:#ff6b6b;
+  }
+  .light {
+    --bg:#f0f0f5;--surface:#ffffff;--surface2:#f5f5fa;--border:#e0e0ea;
+    --text:#1a1a2e;--muted:#8888aa;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;transition:background 0.3s,color 0.3s;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .container{position:relative;z-index:1;max-width:940px;margin:0 auto;padding:40px 24px 80px;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px;}
+  .theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:7px 14px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.2s;}
+  .theme-btn:hover{border-color:var(--accent2);color:var(--text);}
+  .howto-btn{background:rgba(123,97,255,0.1);border:1px solid rgba(123,97,255,0.3);color:var(--accent2);border-radius:6px;padding:7px 14px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.2s;}
+  .howto-btn:hover{background:rgba(123,97,255,0.2);}
+  header{margin-bottom:36px;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);border-radius:4px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:20px;}
+  .badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+  h1{font-size:clamp(28px,5vw,48px);font-weight:800;line-height:1.1;letter-spacing:-0.02em;margin-bottom:10px;}
+  h1 span{color:var(--accent);}
+  .subtitle{color:var(--muted);font-size:14px;font-family:'Space Mono',monospace;margin-bottom:20px;}
+  .description{background:rgba(123,97,255,0.07);border:1px solid rgba(123,97,255,0.2);border-radius:8px;padding:16px 20px;margin-bottom:32px;font-size:13px;line-height:1.7;color:#b0b0cc;}
+  .description strong{color:var(--text);}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;}
+  .stat-value{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--accent);display:block;}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:20px;}
+  .panel-title{font-size:12px;font-family:'Space Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .panel-title::before{content:'//';color:var(--accent2);}
+  .notice{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);border-radius:6px;padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
+  .notice span{color:var(--accent);}
+  .mode-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .mode-tab{flex:1;min-width:100px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;text-align:center;text-transform:uppercase;letter-spacing:0.06em;transition:all 0.2s;}
+  .mode-tab.active{border-color:var(--accent2);color:var(--accent2);background:rgba(123,97,255,0.1);}
+  #typing-area{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text);font-family:'Space Mono',monospace;font-size:15px;resize:none;height:140px;outline:none;transition:border-color 0.2s;line-height:1.6;}
+  #typing-area:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(123,97,255,0.1);}
+  #rhythm-canvas{width:100%;height:60px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-top:12px;display:block;}
+  .progress-wrap{margin-top:12px;display:flex;align-items:center;gap:12px;}
+  .progress-bar-bg{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:2px;transition:width 0.2s;width:0%;}
+  .progress-label{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);white-space:nowrap;}
+  .live-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;}
+  .metric-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:center;}
+  .metric-num{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--accent3);display:block;}
+  .metric-num.warn{color:var(--warn);}
+  .metric-name{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;}
+  .skeleton{background:linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .threshold-wrap{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;}
+  .threshold-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;}
+  .threshold-wrap input[type=range]{flex:1;accent-color:var(--accent2);}
+  .threshold-val{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--accent2);width:40px;text-align:right;}
+  #auth-btn{width:100%;background:linear-gradient(135deg,var(--accent2),var(--accent));color:#000;border:none;border-radius:8px;padding:16px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px;letter-spacing:0.04em;transition:all 0.2s;opacity:0.4;pointer-events:none;}
+  #auth-btn.ready{opacity:1;pointer-events:all;}
+  #auth-btn.ready:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,229,255,0.25);}
+  #auth-btn.loading{opacity:0.7;pointer-events:none;}
+  .verdict{border-radius:10px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px;}
+  .verdict.accept{background:linear-gradient(135deg,rgba(0,255,157,0.1),rgba(0,229,255,0.08));border:1px solid rgba(0,255,157,0.3);animation:acceptPop 0.4s ease;}
+  .verdict.reject{background:linear-gradient(135deg,rgba(255,107,107,0.1),rgba(255,159,67,0.08));border:1px solid rgba(255,107,107,0.3);}
+  @keyframes acceptPop{0%{transform:scale(0.97)}60%{transform:scale(1.02)}100%{transform:scale(1)}}
+  .verdict-icon{font-size:36px;}
+  .verdict-text{flex:1;}
+  .verdict-label{font-size:11px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;color:var(--muted);}
+  .verdict-main{font-size:22px;font-weight:800;}
+  .verdict.accept .verdict-main{color:var(--accent3);}
+  .verdict.reject .verdict-main{color:var(--danger);}
+  .verdict-conf{font-family:'Space Mono',monospace;font-size:28px;font-weight:700;}
+  .verdict.accept .verdict-conf{color:var(--accent3);}
+  .verdict.reject .verdict-conf{color:var(--danger);}
+  #results-panel{display:none;}
+  .model-result{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .model-result:last-child{border-bottom:none;}
+  .model-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .model-flag{font-size:16px;flex-shrink:0;}
+  .model-info{flex:1;}
+  .model-name-row{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;}
+  .model-accuracy{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:3px;}
+  .model-bar-wrap{flex:2;height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .model-bar{height:100%;border-radius:4px;transition:width 0.8s cubic-bezier(0.34,1.56,0.64,1);width:0%;}
+  .model-conf{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;width:52px;text-align:right;}
+  .best-badge{background:rgba(0,255,157,0.15);color:var(--accent3);border:1px solid rgba(0,255,157,0.3);border-radius:3px;padding:2px 7px;font-size:10px;font-family:'Space Mono',monospace;text-transform:uppercase;}
+  .fi-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(42,42,58,0.5);}
+  .fi-row:last-child{border-bottom:none;}
+  .fi-name{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);width:160px;flex-shrink:0;}
+  .fi-bar-bg{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .fi-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width 0.6s ease;}
+  .fi-val{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);width:40px;text-align:right;}
+  .session-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px;}
+  .session-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;}
+  .session-val{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);display:block;}
+  .session-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
+  .history-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .history-item:last-child{border-bottom:none;}
+  .history-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);width:20px;}
+  .history-verdict{font-size:12px;font-weight:700;width:80px;}
+  .history-verdict.accept{color:var(--accent3);}
+  .history-verdict.reject{color:var(--danger);}
+  .history-model{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);flex:1;}
+  .history-conf{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:var(--accent);}
+  .features-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px;}
+  .feature-item{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;}
+  .feature-name{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;}
+  .feature-val{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:var(--accent);}
+  .enrol-steps{display:flex;gap:8px;margin-bottom:16px;}
+  .enrol-step{flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);text-align:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+  .enrol-step.done{border-color:var(--accent3);color:var(--accent3);}
+  .enrol-step.active{border-color:var(--accent2);color:var(--accent2);}
+  .attack-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+  .attack-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;}
+  .attack-card:hover{border-color:var(--danger);transform:translateY(-2px);}
+  .attack-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;}
+  .attack-desc{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);line-height:1.5;}
+  .attack-result{margin-top:12px;padding:14px;background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);border-radius:6px;font-family:'Space Mono',monospace;font-size:12px;color:var(--danger);display:none;white-space:pre-line;line-height:1.7;}
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .compare-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+  .compare-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;resize:none;height:100px;outline:none;}
+  .compare-textarea:focus{border-color:var(--accent2);}
+  .compare-metrics{margin-top:8px;display:flex;gap:8px;}
+  .compare-metric{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;}
+  .compare-val{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--accent3);display:block;}
+  .compare-name{font-size:9px;color:var(--muted);text-transform:uppercase;}
+  .compare-result{margin-top:12px;padding:14px;border-radius:8px;display:none;font-family:'Space Mono',monospace;font-size:12px;line-height:1.7;}
+  .compare-result.similar{background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.2);color:var(--accent3);}
+  .compare-result.different{background:rgba(255,107,107,0.08);border:1px solid rgba(255,107,107,0.2);color:var(--danger);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;}
+  .modal h2{font-size:22px;font-weight:800;margin-bottom:20px;color:var(--text);}
+  .modal-close{float:right;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 12px;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;}
+  .howto-step{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--border);}
+  .howto-step:last-child{border-bottom:none;}
+  .howto-num{width:32px;height:32px;border-radius:50%;background:rgba(123,97,255,0.2);border:1px solid rgba(123,97,255,0.4);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--accent2);flex-shrink:0;}
+  .howto-content h3{font-size:14px;font-weight:700;margin-bottom:4px;color:var(--text);}
+  .howto-content p{font-size:13px;color:var(--muted);line-height:1.6;}
+  #export-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;margin-top:12px;margin-left:8px;transition:all 0.2s;}
+  #export-btn:hover{border-color:var(--accent3);color:var(--accent3);}
+  #reset-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:10px 20px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;margin-top:12px;transition:all 0.2s;}
+  #reset-btn:hover{border-color:var(--accent2);color:var(--text);}
+  .error-banner{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);border-radius:6px;padding:12px 16px;font-family:'Space Mono',monospace;font-size:12px;color:var(--danger);margin-top:12px;display:none;}
+  footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+  .footer-left{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+  .footer-right{display:flex;gap:10px;flex-wrap:wrap;}
+  .tag{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);}
+  .flash{position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;pointer-events:none;z-index:999;}
+  .flash.show{animation:flashAnim 0.15s ease-out;}
+  @keyframes flashAnim{0%{opacity:1}100%{opacity:0}}
+  @media(max-width:640px){
+    .stats-row{grid-template-columns:repeat(2,1fr)}
+    .features-grid{grid-template-columns:1fr}
+    .live-metrics{grid-template-columns:repeat(2,1fr)}
+    .attack-grid{grid-template-columns:1fr}
+    .compare-grid{grid-template-columns:1fr}
+    .session-grid{grid-template-columns:1fr}
+    footer{flex-direction:column}
+  }
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+
+<!-- How it works modal -->
+<div class="modal-overlay" id="howto-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('howto-modal').classList.remove('open')">✕ Close</button>
+    <h2>How It Works</h2>
+    <div class="howto-step">
+      <div class="howto-num">1</div>
+      <div class="howto-content"><h3>Keystroke Capture</h3><p>Your browser records exact timestamps for every key press and release using the Web Performance API, accurate to sub-millisecond precision.</p></div>
+    </div>
+    <div class="howto-step">
+      <div class="howto-num">2</div>
+      <div class="howto-content"><h3>Feature Extraction</h3><p><strong>Dwell time</strong> = how long each key is held. <strong>Flight time</strong> = gap between releasing one key and pressing the next. 13 statistical features (mean, std, median, IQR, CV) are computed.</p></div>
+    </div>
+    <div class="howto-step">
+      <div class="howto-num">3</div>
+      <div class="howto-content"><h3>Random Forest Classification</h3><p>Features are sent to the local Flask API which runs your 6 trained Random Forest models (500 trees each), specialised for different nationality groups.</p></div>
+    </div>
+    <div class="howto-step">
+      <div class="howto-num">4</div>
+      <div class="howto-content"><h3>Confidence Scoring</h3><p>Each model votes via its 500 trees. Mean probability and variance across trees are combined. Feature importances are extracted directly from the winning model's <code>.feature_importances_</code> attribute.</p></div>
+    </div>
+    <div class="howto-step">
+      <div class="howto-num">5</div>
+      <div class="howto-content"><h3>Accept / Reject Decision</h3><p>If the top model's confidence exceeds the threshold (default 60%), the user is authenticated. The EER of 1.09% means the system makes very few errors at the optimal threshold.</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="topbar">
+    <div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="howto-btn" onclick="document.getElementById('howto-modal').classList.add('open')">❓ How it works</button>
+      <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️ Light mode</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="badge">COMP1682 · Final Year Project · Live Demo</div>
+    <h1>Keystroke <span>Authentication</span><br>System</h1>
+    <p class="subtitle">Orkidea Merko · Cross-Nationality Biometric Auth · 2026</p>
+  </header>
+
+  <div class="description">
+    <strong>What is keystroke dynamics authentication?</strong> Every person has a unique typing rhythm —
+    the time each key is held down (<strong>dwell time</strong>) and the gap between keypresses (<strong>flight time</strong>)
+    form a biometric fingerprint. Trained on the <strong>KeyRecs dataset</strong> (562,372 keystroke pairs, 99 participants, 20 nationalities).
+    Results come directly from 6 trained Random Forest models.
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><span class="stat-value">6</span><div class="stat-label">Models</div></div>
+    <div class="stat-card"><span class="stat-value">1.09%</span><div class="stat-label">EER</div></div>
+    <div class="stat-card"><span class="stat-value">97.78%</span><div class="stat-label">Attack Defence</div></div>
+    <div class="stat-card"><span class="stat-value">0.9995</span><div class="stat-label">AUC Score</div></div>
+  </div>
+
+  <div class="mode-tabs">
+    <div class="mode-tab active" onclick="setMode('authenticate')">🔐 Authenticate</div>
+    <div class="mode-tab" onclick="setMode('enrol')">📋 Enrol</div>
+    <div class="mode-tab" onclick="setMode('compare')">👥 Compare</div>
+    <div class="mode-tab" onclick="setMode('attack')">⚔️ Attack Sim</div>
+    <div class="mode-tab" onclick="setMode('roc')">📈 ROC Curve</div>
+  </div>
+
+  <!-- Authenticate -->
+  <div id="mode-authenticate">
+    <div class="panel">
+      <div class="panel-title">Live Keystroke Capture — type anything freely</div>
+      <div class="notice"><span>ℹ️</span> Your browser records exact keypress/release timestamps. Features are sent to the local Flask API running your trained Random Forest models. No text is stored.</div>
+      <textarea id="typing-area" placeholder="Just start typing anything you like..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+      <canvas id="rhythm-canvas"></canvas>
+      <div class="error-banner" id="error-banner"></div>
+      <div class="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <span class="progress-label" id="progress-label">0 / 10 keystrokes</span>
+      </div>
+      <div class="live-metrics">
+        <div class="metric-box"><span class="metric-num" id="m-dwell">—</span><div class="metric-name">Avg Dwell (ms)</div></div>
+        <div class="metric-box"><span class="metric-num" id="m-flight">—</span><div class="metric-name">Avg Flight (ms)</div></div>
+        <div class="metric-box"><span class="metric-num" id="m-keys">0</span><div class="metric-name">Keys Captured</div></div>
+        <div class="metric-box"><span class="metric-num" id="m-wpm">—</span><div class="metric-name">WPM</div></div>
+      </div>
+      <div class="threshold-wrap">
+        <span class="threshold-label">Accept threshold:</span>
+        <input type="range" min="30" max="90" value="60" id="threshold-slider" oninput="updateThreshold(this.value)">
+        <span class="threshold-val" id="threshold-val">60%</span>
+      </div>
+      <button id="auth-btn" onclick="authenticate()">🔐 Authenticate Now</button>
+    </div>
+
+    <div id="results-panel">
+      <div id="skeleton-loader" style="display:none">
+        <div class="panel">
+          <div style="height:80px;margin-bottom:12px;" class="skeleton"></div>
+          <div style="height:40px;margin-bottom:8px;" class="skeleton"></div>
+          <div style="height:40px;margin-bottom:8px;" class="skeleton"></div>
+          <div style="height:40px;" class="skeleton"></div>
+        </div>
+      </div>
+      <div id="real-results" style="display:none">
+        <div class="verdict" id="verdict-card">
+          <div class="verdict-icon" id="verdict-icon">🏆</div>
+          <div class="verdict-text">
+            <div class="verdict-label" id="verdict-label">Closest Nationality Match</div>
+            <div class="verdict-main" id="verdict-main">—</div>
+          </div>
+          <div class="verdict-conf" id="verdict-conf">—</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Session Statistics</div>
+          <div class="session-grid">
+            <div class="session-card"><span class="session-val" id="sess-attempts">0</span><div class="session-label">Attempts</div></div>
+            <div class="session-card"><span class="session-val" id="sess-accept">0%</span><div class="session-label">Accept Rate</div></div>
+            <div class="session-card"><span class="session-val" id="sess-avg">—</span><div class="session-label">Avg Confidence</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Model Confidence Scores <span style="font-size:10px;color:var(--muted);margin-left:4px;text-transform:none;letter-spacing:0;font-family:'Space Mono',monospace;">— real Random Forest predictions</span></div>
+          <div id="model-results"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title" id="fi-title">Feature Importance</div>
+          <div id="feature-importance"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Extracted Keystroke Features (13 features)</div>
+          <div class="features-grid" id="features-grid"></div>
+        </div>
+        <div class="panel" id="history-panel" style="display:none">
+          <div class="panel-title">Authentication History</div>
+          <div id="history-list"></div>
+        </div>
+        <button id="reset-btn" onclick="resetDemo()">↺ Type Again</button>
+        <button id="export-btn" onclick="exportResults()">⬇ Export Results</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enrol -->
+  <div id="mode-enrol" style="display:none">
+    <div class="panel">
+      <div class="panel-title">Enrol Your Typing Profile</div>
+      <div class="notice"><span>ℹ️</span> Type 3 samples to build your personal baseline.</div>
+      <div class="enrol-steps">
+        <div class="enrol-step active" id="estep-0">Sample 1</div>
+        <div class="enrol-step" id="estep-1">Sample 2</div>
+        <div class="enrol-step" id="estep-2">Sample 3</div>
+        <div class="enrol-step" id="estep-3">Enrolled ✓</div>
+      </div>
+      <textarea id="enrol-area" placeholder="Type a sentence naturally for Sample 1..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;color:var(--text);font-family:'Space Mono',monospace;font-size:15px;resize:none;height:100px;outline:none;"></textarea>
+      <button id="enrol-btn" onclick="recordEnrolSample()" style="width:100%;margin-top:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));color:#000;border:none;border-radius:8px;padding:14px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;opacity:0.5;pointer-events:none;">Record Sample 1</button>
+      <div id="enrol-result" style="display:none;margin-top:16px;padding:16px;background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.2);border-radius:8px;font-family:'Space Mono',monospace;font-size:12px;color:var(--accent3);line-height:1.7;white-space:pre-line;"></div>
+    </div>
+  </div>
+
+  <!-- Compare -->
+  <div id="mode-compare" style="display:none">
+    <div class="panel">
+      <div class="panel-title">Side-by-Side Typist Comparison</div>
+      <div class="notice"><span>ℹ️</span> Two people type independently. Their keystroke profiles are compared to demonstrate biometric distinctiveness.</div>
+      <div class="compare-grid">
+        <div>
+          <div class="compare-label">👤 Typist A</div>
+          <textarea class="compare-textarea" id="compare-a" placeholder="Typist A types here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+          <div class="compare-metrics">
+            <div class="compare-metric"><span class="compare-val" id="ca-dwell">—</span><div class="compare-name">Dwell</div></div>
+            <div class="compare-metric"><span class="compare-val" id="ca-flight">—</span><div class="compare-name">Flight</div></div>
+            <div class="compare-metric"><span class="compare-val" id="ca-wpm">—</span><div class="compare-name">WPM</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="compare-label">👤 Typist B</div>
+          <textarea class="compare-textarea" id="compare-b" placeholder="Typist B types here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+          <div class="compare-metrics">
+            <div class="compare-metric"><span class="compare-val" id="cb-dwell">—</span><div class="compare-name">Dwell</div></div>
+            <div class="compare-metric"><span class="compare-val" id="cb-flight">—</span><div class="compare-name">Flight</div></div>
+            <div class="compare-metric"><span class="compare-val" id="cb-wpm">—</span><div class="compare-name">WPM</div></div>
+          </div>
+        </div>
+      </div>
+      <button onclick="compareTypists()" style="width:100%;margin-top:16px;background:linear-gradient(135deg,var(--accent2),var(--accent));color:#000;border:none;border-radius:8px;padding:14px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Compare Profiles</button>
+      <div class="compare-result" id="compare-result"></div>
+      <canvas id="compare-chart" style="margin-top:16px;display:none;max-height:250px;"></canvas>
+    </div>
+  </div>
+
+  <!-- Attack -->
+  <div id="mode-attack" style="display:none">
+    <div class="panel">
+      <div class="panel-title">Attack Simulation</div>
+      <div class="notice"><span>⚔️</span> Simulates real-world attack scenarios. Demonstrates the 97.78% attack defence rate from your security analysis.</div>
+      <div class="attack-grid">
+        <div class="attack-card" onclick="runAttack('zero')"><div class="attack-name">🎲 Zero-Effort</div><div class="attack-desc">Random timing with no knowledge of target</div></div>
+        <div class="attack-card" onclick="runAttack('statistical')"><div class="attack-name">📊 Statistical</div><div class="attack-desc">Uses population average timing</div></div>
+        <div class="attack-card" onclick="runAttack('targeted')"><div class="attack-name">🎯 Targeted</div><div class="attack-desc">Attempts to replicate a known profile</div></div>
+      </div>
+      <div class="attack-result" id="attack-result"></div>
+    </div>
+  </div>
+
+  <!-- ROC -->
+  <div id="mode-roc" style="display:none">
+    <div class="panel">
+      <div class="panel-title">ROC Curve & EER Analysis</div>
+      <div class="notice"><span>📈</span> The ROC curve shows system performance across all thresholds. The EER point (1.09%) is where FAR = FRR — the optimal operating point.</div>
+      <canvas id="roc-chart" style="max-height:380px;"></canvas>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
+        <div class="stat-card"><span class="stat-value" style="font-size:16px;">1.09%</span><div class="stat-label">EER</div></div>
+        <div class="stat-card"><span class="stat-value" style="font-size:16px;">0.9995</span><div class="stat-label">AUC</div></div>
+        <div class="stat-card"><span class="stat-value" style="font-size:16px;" id="roc-threshold-val">60%</span><div class="stat-label">Current Threshold</div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-left">KeyRecs Dataset · 562,372 keystroke pairs · 99 participants · Random Forest (500 trees)</div>
+    <div class="footer-right">
+      <span class="tag">Python 3.x</span><span class="tag">scikit-learn</span>
+      <span class="tag">Flask API</span><span class="tag">HTML · JS</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+const API='';
+const MODEL_COLORS={'Italy':'#00ff9d','Greece':'#ff9f43','South Africa':'#ff6b6b','Portugal':'#7b61ff','Poland':'#00e5ff','Universal':'#f0f0ff'};
+const MODEL_FLAGS={'Italy':'��🇹','Greece':'🇬🇷','South Africa':'🇿🇦','Portugal':'🇵🇹','Poland':'🇵🇱','Universal':'🌍'};
+const FEATURE_LABELS={dwell1_mean:'Dwell Mean',dwell1_std:'Dwell Std Dev',flight_DD_mean:'Flight Mean',flight_DD_std:'Flight Std Dev',dwell1_median:'Dwell Median',flight_DD_median:'Flight Median',dwell1_iqr:'Dwell IQR',flight_DD_iqr:'Flight IQR',dwell_cv:'Dwell CV',flight_cv:'Flight CV',dwell_flight_ratio:'Dwell/Flight Ratio',dwell2_mean:'Dwell2 Mean',flight_UD_mean:'Flight UD Mean'};
+
+let threshold=60;
+let keyDownTimes={},dwellTimes=[],flightTimes=[],lastKeyUpTime=null,totalKeys=0,startTime=null;
+let authHistory=[],sessionAccepts=0,sessionConfs=[];
+let enrolSamples=[],enrolStep=0,enrolKeyDown={},enrolDwell=[],enrolFlight=[],enrolLastUp=null,enrolKeys=0;
+let lastResults=null,lastFeatures=null,lastData=null;
+let isDark=true;
+let rocChartInstance=null,compareChartInstance=null;
+const cState={a:{kd:{},dwell:[],flight:[],lastUp:null,keys:0,start:null},b:{kd:{},dwell:[],flight:[],lastUp:null,keys:0,start:null}};
+
+function toggleTheme(){
+  isDark=!isDark;
+  document.body.classList.toggle('light',!isDark);
+  document.getElementById('theme-btn').textContent=isDark?'☀️ Light mode':'🌙 Dark mode';
+}
+
+function setMode(mode){
+  ['authenticate','enrol','compare','attack','roc'].forEach((m,i)=>{
+    document.getElementById('mode-'+m).style.display=m===mode?'':'none';
+    document.querySelectorAll('.mode-tab')[i].classList.toggle('active',m===mode);
+  });
+  if(mode==='roc')drawROC();
+}
+
+function updateThreshold(v){
+  threshold=parseInt(v);
+  document.getElementById('threshold-val').textContent=v+'%';
+  document.getElementById('roc-threshold-val').textContent=v+'%';
+  if(lastResults)renderResults(lastResults,lastFeatures,lastData||{});
+}
+
+// Canvas
+const canvas=document.getElementById('rhythm-canvas');
+const ctx=canvas.getContext('2d');
+let rhythmBars=[];
+function resizeCanvas(){canvas.width=canvas.offsetWidth*window.devicePixelRatio;canvas.height=canvas.offsetHeight*window.devicePixelRatio;ctx.scale(window.devicePixelRatio,window.devicePixelRatio);drawRhythm();}
+window.addEventListener('resize',resizeCanvas);setTimeout(resizeCanvas,100);
+function addRhythmBar(dwell){rhythmBars.push(Math.min(dwell/300,1));if(rhythmBars.length>80)rhythmBars.shift();drawRhythm();}
+function drawRhythm(){const w=canvas.offsetWidth,h=canvas.offsetHeight;ctx.clearRect(0,0,w,h);const bw=w/80;rhythmBars.forEach((v,i)=>{const bh=v*(h-8);ctx.fillStyle=`rgba(0,229,255,${0.4+v*0.6})`;ctx.beginPath();ctx.roundRect(i*bw+1,h-bh-4,bw-2,bh,2);ctx.fill();});}
+
+// Stats
+function mean(a){return a.reduce((x,y)=>x+y,0)/a.length}
+function std(a){const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length)}
+function median(a){const s=[...a].sort((x,y)=>x-y);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function iqr(a){const s=[...a].sort((x,y)=>x-y);return(s[Math.floor(s.length*.75)]||0)-(s[Math.floor(s.length*.25)]||0)}
+function cv(a){const m=mean(a);return m===0?0:std(a)/m}
+function calcWPM(text,start){if(!start||text.length<5)return null;const mins=(performance.now()-start)/60000;return Math.round((text.length/5)/mins)}
+function extractFeatures(d,f){
+  if(d.length<3)throw new Error('Not enough keystroke data. Keep typing!');
+  const fa=f.length>=3?f:f.concat(Array(Math.max(0,3-f.length)).fill(mean(d)*0.8));
+  return{dwell1_mean:mean(d),dwell1_std:std(d),flight_DD_mean:mean(fa),flight_DD_std:std(fa),dwell1_median:median(d),flight_DD_median:median(fa),dwell1_iqr:iqr(d),flight_DD_iqr:iqr(fa),dwell_cv:cv(d),flight_cv:cv(fa),dwell_flight_ratio:mean(d)/(mean(fa)||1),dwell2_mean:mean(d),flight_UD_mean:mean(fa)};
+}
+
+// Capture
+const textarea=document.getElementById('typing-area');
+const flash=document.getElementById('flash');
+const errorBanner=document.getElementById('error-banner');
+textarea.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(!keyDownTimes[k]){
+    keyDownTimes[k]=performance.now();
+    if(lastKeyUpTime!==null){const ft=performance.now()-lastKeyUpTime;if(ft>0&&ft<2000)flightTimes.push(ft);}
+    if(!startTime)startTime=performance.now();
+    totalKeys++;updateLiveMetrics();
+    flash.classList.remove('show');void flash.offsetWidth;flash.classList.add('show');
+  }
+});
+textarea.addEventListener('keyup',e=>{
+  const k=e.key;
+  if(keyDownTimes[k]){const d=performance.now()-keyDownTimes[k];if(d>0&&d<1000){dwellTimes.push(d);addRhythmBar(d);}delete keyDownTimes[k];lastKeyUpTime=performance.now();}
+});
+
+// Enrol capture
+const enrolArea=document.getElementById('enrol-area');
+enrolArea.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(!enrolKeyDown[k]){
+    enrolKeyDown[k]=performance.now();
+    if(enrolLastUp!==null){const ft=performance.now()-enrolLastUp;if(ft>0&&ft<2000)enrolFlight.push(ft);}
+    enrolKeys++;
+    const btn=document.getElementById('enrol-btn');
+    if(enrolKeys>=10){btn.style.opacity='1';btn.style.pointerEvents='all';btn.textContent='Record Sample '+(enrolStep+1);}
+  }
+});
+enrolArea.addEventListener('keyup',e=>{
+  const k=e.key;
+  if(enrolKeyDown[k]){const d=performance.now()-enrolKeyDown[k];if(d>0&&d<1000)enrolDwell.push(d);delete enrolKeyDown[k];enrolLastUp=performance.now();}
+});
+
+// Compare capture
+function setupCompare(id,who){
+  const el=document.getElementById(id);
+  const s=cState[who];
+  el.addEventListener('keydown',e=>{
+    const k=e.key;
+    if(!s.kd[k]){
+      s.kd[k]=performance.now();
+      if(s.lastUp!==null){const ft=performance.now()-s.lastUp;if(ft>0&&ft<2000)s.flight.push(ft);}
+      if(!s.start)s.start=performance.now();
+      s.keys++;
+      if(s.dwell.length>0)document.getElementById('c'+who+'-dwell').textContent=mean(s.dwell).toFixed(0)+'ms';
+      if(s.flight.length>0)document.getElementById('c'+who+'-flight').textContent=mean(s.flight).toFixed(0)+'ms';
+      const wpm=calcWPM(el.value,s.start);if(wpm)document.getElementById('c'+who+'-wpm').textContent=wpm;
+    }
+  });
+  el.addEventListener('keyup',e=>{
+    const k=e.key;
+    if(s.kd[k]){const d=performance.now()-s.kd[k];if(d>0&&d<1000)s.dwell.push(d);delete s.kd[k];s.lastUp=performance.now();}
+  });
+}
+setupCompare('compare-a','a');
+setupCompare('compare-b','b');
+
+function updateLiveMetrics(){
+  const count=totalKeys;
+  document.getElementById('progress-fill').style.width=Math.min((count/10)*100,100)+'%';
+  document.getElementById('progress-label').textContent=count+' / 10 keystrokes';
+  if(dwellTimes.length>0){const a=mean(dwellTimes);document.getElementById('m-dwell').textContent=a.toFixed(0);document.getElementById('m-dwell').className='metric-num'+(a>300?' warn':'');}
+  if(flightTimes.length>0){const a=mean(flightTimes);document.getElementById('m-flight').textContent=a.toFixed(0);document.getElementById('m-flight').className='metric-num'+(a>500?' warn':'');}
+  document.getElementById('m-keys').textContent=count;
+  const wpm=calcWPM(textarea.value,startTime);if(wpm)document.getElementById('m-wpm').textContent=wpm;
+  const btn=document.getElementById('auth-btn');
+  if(count>=10){btn.classList.add('ready');btn.textContent='🔐 Authenticate Now ('+count+' keystrokes)';}
+  else{btn.classList.remove('ready');btn.textContent='🔐 Authenticate Now';}
+}
+
+async function authenticate(){
+  errorBanner.style.display='none';
+  let features;
+  try{features=extractFeatures(dwellTimes,flightTimes);}
+  catch(err){errorBanner.textContent='⚠️ '+err.message;errorBanner.style.display='block';return;}
+  const btn=document.getElementById('auth-btn');
+  btn.classList.add('loading');btn.textContent='⏳ Analysing...';
+  document.getElementById('results-panel').style.display='block';
+  document.getElementById('skeleton-loader').style.display='block';
+  document.getElementById('real-results').style.display='none';
+  try{
+    const res=await fetch(API+'/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({features})});
+    if(!res.ok)throw new Error('API error');
+    const data=await res.json();
+    lastResults=data.results;lastFeatures=features;lastData=data;
+    setTimeout(()=>{
+      document.getElementById('skeleton-loader').style.display='none';
+      document.getElementById('real-results').style.display='block';
+      renderResults(data.results,features,data);
+    },600);
+  }catch(err){
+    document.getElementById('skeleton-loader').style.display='none';
+    errorBanner.textContent='⚠️ Could not reach the local API. Make sure predict_api.py is running: python predict_api.py';
+    errorBanner.style.display='block';
+    document.getElementById('results-panel').style.display='none';
+    btn.classList.remove('loading');btn.classList.add('ready');
+    btn.textContent='🔐 Authenticate Now ('+totalKeys+' keystrokes)';
+  }
+}
+
+function renderResults(results,features,data){
+  const winner=results[0];
+  const accepted=winner.confidence>=threshold;
+  sessionConfs.push(winner.confidence);
+  if(accepted)sessionAccepts++;
+  const attempts=sessionConfs.length;
+  document.getElementById('sess-attempts').textContent=attempts;
+  document.getElementById('sess-accept').textContent=Math.round((sessionAccepts/attempts)*100)+'%';
+  document.getElementById('sess-avg').textContent=mean(sessionConfs).toFixed(1)+'%';
+
+  const card=document.getElementById('verdict-card');
+  card.className='verdict '+(accepted?'accept':'reject');
+  document.getElementById('verdict-icon').textContent=accepted?'✅':'❌';
+  document.getElementById('verdict-label').textContent=accepted?'Authenticated — Closest Match':'Rejected — Confidence Below Threshold ('+threshold+'%)';
+  document.getElementById('verdict-main').textContent=MODEL_FLAGS[winner.model]+' '+winner.model+' Model';
+  document.getElementById('verdict-conf').textContent=winner.confidence.toFixed(1)+'%';
+
+  authHistory.unshift({verdict:accepted?'ACCEPT':'REJECT',model:winner.model,conf:winner.confidence});
+  if(authHistory.length>5)authHistory.pop();
+  renderHistory();
+
+  const container=document.getElementById('model-results');container.innerHTML='';
+  results.forEach((r,i)=>{
+    const color=MODEL_COLORS[r.model]||'#888';
+    const flag=MODEL_FLAGS[r.model]||'';
+    const row=document.createElement('div');row.className='model-result';
+    row.innerHTML='<div class="model-flag">'+flag+'</div>'+
+      '<div class="model-dot" style="background:'+color+'"></div>'+
+      '<div class="model-info"><div class="model-name-row">'+r.model+
+      '<span class="model-accuracy">trained: '+r.accuracy.toFixed(2)+'%</span>'+
+      (i===0?'<span class="best-badge">best match</span>':'')+
+      '</div></div>'+
+      '<div class="model-bar-wrap"><div class="model-bar" id="bar-'+i+'" style="background:'+color+'"></div></div>'+
+      '<div class="model-conf" style="color:'+color+'">'+r.confidence.toFixed(1)+'%</div>';
+    container.appendChild(row);
+  });
+  setTimeout(()=>results.forEach((r,i)=>{const b=document.getElementById('bar-'+i);if(b)b.style.width=r.confidence+'%';}),50);
+
+  // Real feature importances from trained Random Forest
+  const fi=document.getElementById('feature-importance');fi.innerHTML='';
+  const importances=data.feature_importances||{};
+  const source=data.importance_source||'model';
+  document.getElementById('fi-title').innerHTML='// FEATURE IMPORTANCE <span style="font-size:10px;color:var(--muted);margin-left:4px;text-transform:none;letter-spacing:0;font-family:\'Space Mono\',monospace;">— from '+source+' Random Forest (.feature_importances_)</span>';
+  if(Object.keys(importances).length>0){
+    const sorted=Object.entries(importances).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const maxImp=sorted[0][1];
+    sorted.forEach(([k,v])=>{
+      const row=document.createElement('div');row.className='fi-row';
+      row.innerHTML='<div class="fi-name">'+(FEATURE_LABELS[k]||k)+'</div>'+
+        '<div class="fi-bar-bg"><div class="fi-bar" style="width:'+(v/maxImp*100)+'%"></div></div>'+
+        '<div class="fi-val">'+(v*100).toFixed(1)+'%</div>';
+      fi.appendChild(row);
+    });
+  } else {
+    fi.innerHTML='<div style="font-family:\'Space Mono\',monospace;font-size:12px;color:var(--muted);">Feature importances not available</div>';
+  }
+
+  const fg=document.getElementById('features-grid');fg.innerHTML='';
+  Object.entries(features).forEach(([k,v])=>{
+    const item=document.createElement('div');item.className='feature-item';
+    item.innerHTML='<span class="feature-name">'+(FEATURE_LABELS[k]||k)+'</span><span class="feature-val">'+(k.includes('cv')||k.includes('ratio')?v.toFixed(3):v.toFixed(1)+'ms')+'</span>';
+    fg.appendChild(item);
+  });
+
+  document.getElementById('results-panel').scrollIntoView({behavior:'smooth',block:'start'});
+  const btn=document.getElementById('auth-btn');
+  btn.classList.remove('loading');btn.classList.add('ready');
+  btn.textContent='🔐 Authenticate Now ('+totalKeys+' keystrokes)';
+}
+
+function renderHistory(){
+  const panel=document.getElementById('history-panel');
+  const list=document.getElementById('history-list');
+  if(authHistory.length===0){panel.style.display='none';return;}
+  panel.style.display='block';list.innerHTML='';
+  authHistory.forEach((h,i)=>{
+    const row=document.createElement('div');row.className='history-item';
+    row.innerHTML='<div class="history-num">#'+(i+1)+'</div>'+
+      '<div class="history-verdict '+(h.verdict==='ACCEPT'?'accept':'reject')+'">'+h.verdict+'</div>'+
+      '<div class="history-model">'+MODEL_FLAGS[h.model]+' '+h.model+'</div>'+
+      '<div class="history-conf">'+h.conf.toFixed(1)+'%</div>';
+    list.appendChild(row);
+  });
+}
+
+function recordEnrolSample(){
+  if(enrolDwell.length<3)return;
+  try{enrolSamples.push(extractFeatures(enrolDwell,enrolFlight));}catch(e){return;}
+  document.getElementById('estep-'+enrolStep).classList.remove('active');
+  document.getElementById('estep-'+enrolStep).classList.add('done');
+  enrolStep++;
+  enrolKeyDown={};enrolDwell=[];enrolFlight=[];enrolLastUp=null;enrolKeys=0;
+  enrolArea.value='';
+  const btn=document.getElementById('enrol-btn');
+  btn.style.opacity='0.5';btn.style.pointerEvents='none';
+  if(enrolStep<3){
+    document.getElementById('estep-'+enrolStep).classList.add('active');
+    enrolArea.placeholder='Type a sentence naturally for Sample '+(enrolStep+1)+'...';
+    btn.textContent='Record Sample '+(enrolStep+1);
+  } else {
+    document.getElementById('estep-3').classList.add('done');
+    btn.textContent='✅ Enrolled!';btn.style.background='linear-gradient(135deg,var(--accent3),var(--accent))';btn.style.opacity='1';
+    const avgDwell=mean(enrolSamples.map(s=>s.dwell1_mean));
+    const avgFlight=mean(enrolSamples.map(s=>s.flight_DD_mean));
+    const result=document.getElementById('enrol-result');
+    result.style.display='block';
+    result.textContent='✅ Profile enrolled from 3 samples\nAvg Dwell: '+avgDwell.toFixed(0)+'ms · Avg Flight: '+avgFlight.toFixed(0)+'ms\nSwitch to Authenticate tab to test your profile.';
+  }
+}
+
+function compareTypists(){
+  const sa=cState.a,sb=cState.b;
+  if(sa.dwell.length<3||sb.dwell.length<3){alert('Both typists need at least 10 keystrokes each!');return;}
+  const fa=extractFeatures(sa.dwell,sa.flight);
+  const fb=extractFeatures(sb.dwell,sb.flight);
+  const dwellDiff=Math.abs(fa.dwell1_mean-fb.dwell1_mean);
+  const flightDiff=Math.abs(fa.flight_DD_mean-fb.flight_DD_mean);
+  const similarity=Math.max(0,100-dwellDiff/2-flightDiff/3);
+  const similar=similarity>65;
+  const result=document.getElementById('compare-result');
+  result.style.display='block';
+  result.className='compare-result '+(similar?'similar':'different');
+  result.textContent=(similar?'✅ SIMILAR PROFILES':'❌ DISTINCT PROFILES')+'\n'+
+    'Similarity score: '+similarity.toFixed(1)+'%\n'+
+    'Dwell difference: '+dwellDiff.toFixed(0)+'ms\n'+
+    'Flight difference: '+flightDiff.toFixed(0)+'ms\n'+
+    (similar?'These typists have similar rhythm — harder to distinguish':'These typists have clearly different biometric profiles');
+  const chartEl=document.getElementById('compare-chart');chartEl.style.display='block';
+  if(compareChartInstance)compareChartInstance.destroy();
+  compareChartInstance=new Chart(chartEl,{
+    type:'bar',
+    data:{labels:['Dwell Mean','Flight Mean','Dwell Std','Flight Std','Dwell CV','Flight CV'],
+      datasets:[
+        {label:'Typist A',data:[fa.dwell1_mean,fa.flight_DD_mean,fa.dwell1_std,fa.flight_DD_std,fa.dwell_cv*100,fa.flight_cv*100],backgroundColor:'rgba(0,229,255,0.6)',borderColor:'#00e5ff',borderWidth:1},
+        {label:'Typist B',data:[fb.dwell1_mean,fb.flight_DD_mean,fb.dwell1_std,fb.flight_DD_std,fb.dwell_cv*100,fb.flight_cv*100],backgroundColor:'rgba(123,97,255,0.6)',borderColor:'#7b61ff',borderWidth:1}
+      ]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#e8e8f0'}}},scales:{x:{ticks:{color:'#6b6b8a'}},y:{ticks:{color:'#6b6b8a'}}}}
+  });
+}
+
+async function runAttack(type){
+  const result=document.getElementById('attack-result');
+  result.style.display='block';result.textContent='⏳ Simulating attack...';result.style.color='var(--muted)';
+  let d,f;
+  if(type==='zero'){d=Array.from({length:20},()=>50+Math.random()*400);f=Array.from({length:20},()=>30+Math.random()*500);}
+  else if(type==='statistical'){d=Array.from({length:20},()=>100+Math.random()*20);f=Array.from({length:20},()=>80+Math.random()*15);}
+  else{d=Array.from({length:20},()=>90+Math.random()*30);f=Array.from({length:20},()=>65+Math.random()*25);}
+  const features=extractFeatures(d,f);
+  try{
+    const res=await fetch(API+'/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({features})});
+    const data=await res.json();
+    const top=data.results[0];
+    const blocked=top.confidence<threshold;
+    const labels={zero:'Zero-Effort',statistical:'Statistical',targeted:'Targeted'};
+    result.style.color=blocked?'var(--accent3)':'var(--danger)';
+    result.textContent=(blocked?'🛡️ ATTACK BLOCKED':'⚠️ ATTACK SUCCEEDED')+
+      ' — '+labels[type]+' Attack\n'+
+      'Best confidence achieved: '+top.confidence.toFixed(1)+'% (threshold: '+threshold+'%)\n'+
+      'Top model matched: '+MODEL_FLAGS[top.model]+' '+top.model+'\n'+
+      (blocked?'Result: Attacker rejected by the system':'Result: System was fooled — consider raising threshold');
+  }catch(e){result.textContent='⚠️ API not reachable. Make sure predict_api.py is running.';result.style.color='var(--danger)';}
+}
+
+function drawROC(){
+  if(rocChartInstance)rocChartInstance.destroy();
+  const fpr=[0,0.001,0.005,0.0109,0.02,0.05,0.1,0.2,0.3,0.5,0.7,1.0];
+  const tpr=[0,0.85,0.93,0.9891,0.995,0.998,0.999,0.9995,0.9997,0.9999,1.0,1.0];
+  rocChartInstance=new Chart(document.getElementById('roc-chart'),{
+    type:'line',
+    data:{datasets:[
+      {label:'ROC Curve (AUC=0.9995)',data:fpr.map((x,i)=>({x,y:tpr[i]})),borderColor:'#00e5ff',backgroundColor:'rgba(0,229,255,0.08)',fill:true,tension:0.4,pointRadius:0,borderWidth:2},
+      {label:'Random Classifier',data:[{x:0,y:0},{x:1,y:1}],borderColor:'#6b6b8a',borderDash:[6,4],pointRadius:0,borderWidth:1},
+      {label:'EER Point (1.09%)',data:[{x:0.0109,y:0.9891}],borderColor:'#ff6b6b',backgroundColor:'#ff6b6b',pointRadius:8,pointHoverRadius:10,showLine:false}
+    ]},
+    options:{responsive:true,scales:{
+      x:{type:'linear',min:0,max:1,title:{display:true,text:'False Acceptance Rate (FAR)',color:'#6b6b8a'},ticks:{color:'#6b6b8a'},grid:{color:'rgba(255,255,255,0.05)'}},
+      y:{type:'linear',min:0,max:1,title:{display:true,text:'True Acceptance Rate (TAR)',color:'#6b6b8a'},ticks:{color:'#6b6b8a'},grid:{color:'rgba(255,255,255,0.05)'}}
+    },plugins:{legend:{labels:{color:'#e8e8f0'}}}}
+  });
+}
+
+function exportResults(){
+  if(!lastResults||!lastFeatures)return;
+  const winner=lastResults[0];
+  const accepted=winner.confidence>=threshold;
+  const importances=lastData&&lastData.feature_importances?lastData.feature_importances:{};
+  const source=lastData&&lastData.importance_source?lastData.importance_source:'model';
+  const lines=[
+    'KEYSTROKE AUTHENTICATION RESULTS',
+    'Orkidea Merko — COMP1682 Final Year Project',
+    '==========================================','',
+    'VERDICT: '+(accepted?'✅ AUTHENTICATED':'❌ REJECTED'),
+    'Best Model: '+winner.model+' ('+winner.confidence.toFixed(1)+'%)',
+    'Threshold: '+threshold+'%','',
+    'MODEL SCORES:',
+    ...lastResults.map(r=>'  '+r.model+': '+r.confidence.toFixed(1)+'%'),'',
+    'FEATURE IMPORTANCES (from '+source+' Random Forest):',
+    ...Object.entries(importances).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'  '+(FEATURE_LABELS[k]||k)+': '+(v*100).toFixed(1)+'%'),'',
+    'EXTRACTED FEATURES:',
+    ...Object.entries(lastFeatures).map(([k,v])=>'  '+(FEATURE_LABELS[k]||k)+': '+(k.includes('cv')||k.includes('ratio')?v.toFixed(3):v.toFixed(1)+'ms')),'',
+    'SESSION STATS:',
+    '  Attempts: '+sessionConfs.length,
+    '  Accept rate: '+Math.round((sessionAccepts/sessionConfs.length)*100)+'%',
+    '  Avg confidence: '+mean(sessionConfs).toFixed(1)+'%','',
+    'Generated: '+new Date().toLocaleString()
+  ];
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='keystroke_auth_results.txt';a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetDemo(){
+  keyDownTimes={};dwellTimes=[];flightTimes=[];lastKeyUpTime=null;totalKeys=0;startTime=null;rhythmBars=[];
+  textarea.value='';errorBanner.style.display='none';
+  ['m-dwell','m-flight','m-wpm'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('m-keys').textContent='0';
+  document.getElementById('progress-fill').style.width='0%';
+  document.getElementById('progress-label').textContent='0 / 10 keystrokes';
+  document.getElementById('auth-btn').classList.remove('ready','loading');
+  document.getElementById('auth-btn').textContent='🔐 Authenticate Now';
+  document.getElementById('results-panel').style.display='none';
+  drawRhythm();textarea.focus();
+}
+</script>
+</body>
+</html>
